@@ -3,8 +3,9 @@ const { HttpsProxyAgent } = require("https-proxy-agent");
 const { readToken, loadProxies } = require("../utils/file");
 const { logger } = require("../utils/logger");
 const fs = require("fs").promises;
+const API_BASE = 'https://api.pipecdn.app/api';
 
-const API_BASE = "https://pipe-network-backend.pipecanary.workers.dev/api";
+// const API_BASE = "https://pipe-network-backend.pipecanary.workers.dev/api";
 // fetch points
 async function fetchPoints(token, username, agent) {
 
