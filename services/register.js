@@ -4,7 +4,9 @@ const readlineSync = require('readline-sync');
 const { HttpsProxyAgent } = require("https-proxy-agent");
 const { logger } = require("../utils/logger");
 const { loadProxies } = require("../utils/file");
-const API_URL = 'https://pipe-network-backend.pipecanary.workers.dev/api/signup';
+// const API_URL = 'https://pipe-network-backend.pipecanary.workers.dev/api/signup';
+const API_URL = 'https://api.pipecdn.app/api/signup';
+
 const ACCOUNT_FILE = 'account.json';
 
 // Function to register a new user with a specific proxy
