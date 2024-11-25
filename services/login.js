@@ -4,7 +4,9 @@ const { HttpsProxyAgent } = require("https-proxy-agent");
 const { logger } = require("../utils/logger");
 const fs = require('fs');
 
-const API_BASE = "https://pipe-network-backend.pipecanary.workers.dev/api";
+// const API_BASE = "https://pipe-network-backend.pipecanary.workers.dev/api";
+const API_BASE = 'https://api.pipecdn.app/api';
+
 const ACCOUNT_FILE = 'account.json';
 
 // Function to read all accounts from account.json
