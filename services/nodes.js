@@ -4,7 +4,8 @@ const { HttpsProxyAgent } = require("https-proxy-agent");
 const { logger } = require("../utils/logger");
 const fs = require("fs").promises;
 
-const API_BASE = "https://pipe-network-backend.pipecanary.workers.dev/api";
+// const API_BASE = "https://pipe-network-backend.pipecanary.workers.dev/api";
+const API_BASE = 'https://api.pipecdn.app/api';
 
 // Main function to run node tests
 async function runNodeTests() {
