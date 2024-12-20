@@ -3,41 +3,40 @@ const fs = require('fs');
 const readlineSync = require('readline-sync');
 const { HttpsProxyAgent } = require("https-proxy-agent");
 const { logger } = require("../utils/logger");
-const { loadProxies } = require("../utils/file");
-// const API_URL = 'https://pipe-network-backend.pipecanary.workers.dev/api/signup';
-const API_URL = 'https://api.pipecdn.app/api/signup';
+const { loadProxies, headers } = require("../utils/file");
 
 const ACCOUNT_FILE = 'account.json';
 
 // Function to register a new user with a specific proxy
-async function registerUser(email, password, proxy) {
+async function registerUser(email, password, proxy, API_URL) {
     try {
-        const agent = new HttpsProxyAgent(proxy); 
-        const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            email: email,
-            password: password,
-            referralCode: "dHdvcGlnMT",
-        }),
-        agent,
+        const agent = new HttpsProxyAgent(proxy);
+        const response = await fetch(`${API_URL}/api/signup`, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+                email: email,
+                password: password,
+                referralCode: "bml1YWdyb0",
+            }),
+            agent,
         });
 
         if (response.ok) {
-        const data = await response.text();
-        if (data) {
-            // Add user to the account.json 
-            await addUserToFile(email, password);
-            logger('Registration successful!', "success", data);
+            const data = await response.text();
+            if (data) {
+                // Add user to the account.json 
+                await addUserToFile(email, password);
+                logger('Registration successful!', "success", data);
+            } else {
+                logger('Registration failed! Please try again.', "error");
+            }
         } else {
-            logger('Registration failed! Please try again.', "error");
-        }
-        } else {
-        const errorText = await response.text();
-        logger('Registration error:', "error", errorText);
+            const errorText = await response.text();
+            logger('Registration error:', "error", errorText);
         }
     } catch (error) {
         logger('Error registering user:', "error", error);
@@ -48,7 +47,7 @@ async function registerUser(email, password, proxy) {
 function promptUserForCredentials() {
     const email = readlineSync.question('Enter your email: ');
     const password = readlineSync.question('Enter your password: ', {
-        hideEchoBack: true, 
+        hideEchoBack: true,
     });
     return { email, password };
 }
@@ -68,9 +67,9 @@ async function addUserToFile(email, password) {
 }
 
 // Main function to execute registration
-async function register() {
+async function register(API_URL) {
     const { email, password } = promptUserForCredentials();
-    
+
     const proxies = await loadProxies();
     if (proxies.length === 0) {
         logger("No proxies available. Please check your proxy.txt file.", "error");
@@ -80,7 +79,8 @@ async function register() {
     const randomProxy = proxies[Math.floor(Math.random() * proxies.length)];
     logger(`Using proxy: ${randomProxy}`);
 
-    await registerUser(email, password, randomProxy);
+    await registerUser(email, password, randomProxy, API_URL);
+    return;
 }
 
 module.exports = { promptUserForCredentials, register };
