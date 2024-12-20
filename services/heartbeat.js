@@ -1,91 +1,124 @@
 const fetch = require("node-fetch");
 const { HttpsProxyAgent } = require("https-proxy-agent");
-const { readToken, loadProxies } = require("../utils/file");
+const { readToken, loadProxies, headers } = require("../utils/file");
 const { logger } = require("../utils/logger");
-const fs = require("fs").promises;
-const API_BASE = 'https://api.pipecdn.app/api';
 
-// const API_BASE = "https://pipe-network-backend.pipecanary.workers.dev/api";
-// fetch points
-async function fetchPoints(token, username, agent) {
-
+// Fetch points for a user
+async function fetchPoints(token, username, agent, API_BASE) {
     try {
-    const response = await fetch(`${API_BASE}/points`, {
-        headers: { Authorization: `Bearer ${token}` },
-        agent,
-    });
+        const response = await fetch(`${API_BASE}/api/points`, {
+            headers: {
+                ...headers,
+                "content-type": "application/json",
+                "authorization": `Bearer ${token}`,
+            },
+            agent,
+        });
 
-    if (response.ok) {
-        const data = await response.json();
-        logger(`Current Points for ${username}:`, "info", data.points);
-    } else {
-        logger(`Failed to fetch points for ${username}:`, 'error', response.status);
-    }
+        if (response.ok) {
+            const data = await response.json();
+            logger(`Current Points for ${username}: ${data.points}`, "info");
+        } else {
+            logger(`Failed to fetch points for ${username}: Status ${response.status}`, "error");
+        }
     } catch (error) {
-    logger(`Error fetching points for ${username}:`, 'error', error.message);
+        logger(`Error fetching points for ${username}: ${error.message}`, "error");
     }
 }
 
 // Function to send heartbeat
-async function sendHeartbeat() {
-    const proxies = await loadProxies(); 
+async function sendHeartbeat(API_BASE) {
+    const proxies = await loadProxies();
     if (proxies.length === 0) {
         logger("No proxies available. Please check your proxy.txt file.", "error");
         return;
     }
 
-    const tokens = await readToken(); 
+    const tokens = await readToken();
+    if (!tokens.length) {
+        logger("No tokens found. Please check your token.txt file.", "error");
+        return;
+    }
 
     for (let i = 0; i < tokens.length; i++) {
         const { token, username } = tokens[i];
-        const proxy = proxies[i % proxies.length]; 
-        const agent = new HttpsProxyAgent(proxy); 
+        const proxy = proxies[i % proxies.length];
+        const agent = new HttpsProxyAgent(proxy);
 
         try {
-            const ip = await fetchIpAddress(agent); 
-            const geo = await fetchGeoLocation(ip, agent); 
+            //await checkForRewards(API_BASE, token)
+            const geoInfo = await getGeoLocation(agent);
 
-            const response = await fetch(`${API_BASE}/heartbeat`, {
+            const response = await fetch(`${API_BASE}/api/heartbeat`, {
                 method: "POST",
                 headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
+                    ...headers,
+                    "content-type": "application/json",
+                    "authorization": `Bearer ${token}`,
                 },
-                body: JSON.stringify({ username, ip, geo }),
-                agent, 
+                body: JSON.stringify({
+                    ip: geoInfo.ip,
+                    location: geoInfo.location,
+                    timestamp: Date.now(),
+                }),
+                agent,
             });
 
             if (response.ok) {
                 logger(`Heartbeat sent successfully for ${username} using proxy: ${proxy}`, "success");
-                await fetchPoints(token, username, agent)
+                await fetchPoints(token, username, agent, API_BASE);
             } else {
-                logger(`Failed to send heartbeat for ${username}:`, "error", await response.text());
+                const errorText = await response.text();
+                logger(`Failed to send heartbeat for ${username}: ${errorText}`, "error");
+                await fetchPoints(token, username, agent, API_BASE);
             }
         } catch (error) {
-            logger(`Error sending heartbeat for ${username}:`, "error", error);
+            logger(`Error sending heartbeat for ${username}: ${error.message}`, "error");
         }
     }
 }
 
-// Function to fetch IP address 
-async function fetchIpAddress(agent) {
+// Fetch IP and Geo-location data
+async function getGeoLocation(agent) {
     try {
-        const response = await fetch("https://api64.ipify.org?format=json", { agent });
-        const { ip } = await response.json();
-        return ip;
+        const response = await fetch('https://ipwhois.app/json/', { agent });
+        if (!response.ok) throw new Error(`Geo-location request failed with status ${response.status}`);
+        const data = await response.json();
+        return {
+            ip: data.ip,
+            location: `${data.city}, ${data.region}, ${data.country}`,
+        };
     } catch (error) {
-        logger("Error fetching IP address:", "error", error);
-        throw error;
+        logger(`Geo-location error: ${error.message}`, "error");
+        return { ip: "0.0.0.0", location: "Unknown Location" };
     }
 }
 
-// Function to fetch GeoLocation
-async function fetchGeoLocation(ip, agent) {
-    const response = await fetch(`https://ipapi.co/${ip}/json/`, { agent });
-    if (response.ok) {
-        return await response.json();
-    }; 
-    return null;
+// Function to check for rewards and notify the user
+async function checkForRewards(baseUrl, token) {
+
+    try {
+        const response = await fetch(`${baseUrl}/api/rewards`, {
+            headers: {
+                ...headers,
+                "content-type": "application/json",
+                "authorization": `Bearer ${token}`,
+            }, agent,
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (Object.keys(data).length > 0) {
+                logger(`Earn more rewards points! Visit: ${data.link}`, 'info', data.link);
+            } else {
+                logger("No rewards available at the moment.");
+            }
+        } else {
+            logger("Failed to fetch rewards data.", 'warn');
+        }
+    } catch (error) {
+        logger("Error checking for rewards:", 'error');
+    }
 }
 
 module.exports = { sendHeartbeat };
